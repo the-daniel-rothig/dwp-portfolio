@@ -78,7 +78,7 @@ function getAllBisProjects(req, res, groupField, groupSortField) {
       data: indexify(_.groupBy(allprojects, groupField)),
       counts: _.countBy(allprojects, 'phase'),
       view: groupField,
-      theme_order: _.uniq(_.map(_.sortBy(allprojects, groupSortField), function(x){return x[groupField]})),//theme_order,
+      theme_order: _.uniq(_.map(_.sortBy(allprojects, groupSortField), function(x){return x[groupField]})),
       phase_order: phase_order, 
       roots: bisRoots,
       theme_descriptions: themeDescriptions,

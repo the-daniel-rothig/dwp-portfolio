@@ -54,6 +54,8 @@ _.each(files,function(el)
     bisDataCallbacks = [];
   }
 
+  var themeOrder = ['BIS HQ', 'Skills Funding Agency', 'UKSBS', 'Innovate UK', 'RCUK', 'MRC (RCUK)', 'BBSRC (RCUK)', 'NERC (RCUK)', 'STFC (RCUK)', 'PSU (AHRC, EPSRC ESRC)'];
+
   var getAll = function() {
     var tempT1 = [];
     var tempT2 = [];
@@ -72,7 +74,7 @@ _.each(files,function(el)
         themes[tempT1[i].get('Activity Tier 1 ID')] = {
           title: tempT1[i].get('Activity Tier 1 Long Name'),
           description: tempT1[i].get('Activity Tier 1 Public Description'),
-          location: tempT1[i].get('Location')
+        var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
         }
       }
       bisBase('Activity Tier 2').select({
@@ -127,15 +129,12 @@ _.each(files,function(el)
     var theme = r.get('Activity T1 ID');
     var themeTitle = (themes && themes[theme] && themes[theme].title) || theme;
     var themeLocation = (themes && themes[theme] && themes[theme].location) || "Various";
-    var themeDescription = (themes && themes[theme] && themes[theme].description) || null;
     var formatted = {
             id: r.get('Activity T2 ID').slice(3),
             name: r.get('Activity Tier 2 Title'),
             description: r.get('Activity Tier 2 Description'),
             theme: themeTitle, 
-            themeid: parseInt(r.get('Activity T1 ID').slice(3)),
             location: themeLocation,
-            themeDescription: themeDescription,
             phase: phase,
             facing: r.get('Facing') === "Internal" ? 'internal' : 'user', 
             sro: r.get('SRO (T2)'),
