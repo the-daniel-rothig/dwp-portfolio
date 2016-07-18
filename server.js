@@ -55,28 +55,37 @@ _.each(files,function(el)
   }
 
   var getAll = function() {
-        bisBase('Activity Tier 1').select().firstPage(function(t1err, t1results) {
-          if (t1err) {
-            alldata = {err: t1err, data: alldata.data};
+    var tempT1 = [];
+    var tempT2 = [];
+
+    bisBase('Activity Tier 1').select().eachPage(function page(t1results, fetchNextPage) {
+      tempT1 = tempT1.concat(t1results);
+      fetchNextPage();
+    }, function done(t1err) {
+      if (t1err) {
+        alldata = {err: t1err, data: alldata.data};
+        triggerAllCallbacks();
+        return;
+      }
+      var themes = {};
+      for (var i in tempT1) {
+        themes[tempT1[i].get('Activity Tier 1 ID')] = tempT1[i].get('Activity Tier 1 Title');
+      }
+      bisBase('Activity Tier 2').select().eachPage(function(results, fetchNextPage) {
+          tempT2 = tempT2.concat(results);
+          fetchNextPage();
+        }, function(err) {
+          if (err) {
+            alldata = {err: err, data: alldata.data};
             triggerAllCallbacks();
-          }
-          var themes = {};
-          for (var i in t1results) {
-            themes[t1results[i].get('Activity Tier 1 ID')] = t1results[i].get('Activity Tier 1 Title');
-          }
-          bisBase('Activity Tier 2').select({
-            maxRecords:200
-          }).firstPage(function(err, results) {
-            if (err) {
-              alldata = {err: err, data: alldata.data};
-              triggerAllCallbacks();
-            };
-            var data = _.filter(_.map(results, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x});
-            alldata = {err: err, data: data};
-            triggerAllCallbacks();
-        });
+            return;
+          };
+          var data = _.filter(_.map(tempT2, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x});
+          alldata = {err: err, data: data};
+          triggerAllCallbacks();
       });
-    } 
+    });
+  }; 
 
   getAll();
   setInterval(getAll, 60 * 1000);
@@ -135,6 +144,7 @@ _.each(files,function(el)
     return formatted;
   }
 })();
+
 // Application settings
 app.set('view engine', 'html');
 app.set('views', [__dirname + '/app/views/', __dirname + '/lib/']);

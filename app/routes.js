@@ -86,7 +86,6 @@ function getAllBisProjects(req, res, groupField, groupSortField) {
       phase_order: phase_order, 
       roots: bisRoots
     };
-    console.log(dat);
     res.render('index', dat);
   });
 }
