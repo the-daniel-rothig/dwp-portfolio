@@ -63,20 +63,34 @@ function indexify(data)
 */
 
 router.get('/bis', function(req, res) {
-  //res.end("ok")
+  getAllBisProjects(req, res, 'theme', 'themeid');
+});
+
+
+router.get('/bis/priority', function(req,res) {
+  getAllBisProjects(req, res, 'priority');
+});
+
+router.get('/bis/location', function(req, res) {
+  getAllBisProjects(req, res, 'location');
+});
+
+
+function getAllBisProjects(req, res, groupField, groupSortField) {
+  groupSortField = groupSortField || groupField; 
   req.app.locals.bisdata.getAll(function (err, allprojects) {
     var dat = {
-      data: indexify(_.groupBy(allprojects, 'theme')),
+      data: indexify(_.groupBy(allprojects, groupField)),
       counts: _.countBy(allprojects, 'phase'),
-      view: 'theme',
-      theme_order: _.uniq(_.map(_.sortBy(allprojects, function(x) {return x.themeid}), function(x){return x.theme})),//theme_order,
+      view: groupField,
+      theme_order: _.uniq(_.map(_.sortBy(allprojects, groupSortField), function(x){return x[groupField]})),//theme_order,
       phase_order: phase_order, 
       roots: bisRoots
     };
     console.log(dat);
     res.render('index', dat);
   });
-});
+}
 /*
   - - - - - - - - - -  INDEX PAGE - - - - - - - - - -
 */
