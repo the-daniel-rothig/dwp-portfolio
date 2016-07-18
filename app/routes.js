@@ -33,8 +33,8 @@ var priority_descriptions = {
 */
 var phase_order = ['backlog','discovery','alpha','beta','live'];
 
-var roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services"};
-var bisRoots = {index: 'bis', project: 'bis/projects', headertext: "(the department formerly known as)BIS Portfolio"};
+var roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
+var bisRoots = {index: 'bis', project: 'bis/projects', headertext: "(the department formerly known as)BIS Portfolio", pagetitle: "(the department formerly known as)BIS Portfolio"};
 
 /*
   A function to gather the data by
@@ -59,13 +59,12 @@ function indexify(data)
 
 
 /*
-  - - - - - - - - - - BIS INDEX PAGE - - - - - - - - - -
+  - - - - - - - - - - BIS INDEX PAGES - - - - - - - - - -
 */
 
 router.get('/bis', function(req, res) {
   getAllBisProjects(req, res, 'theme', 'themeid');
 });
-
 
 router.get('/bis/priority', function(req,res) {
   getAllBisProjects(req, res, 'priority');
