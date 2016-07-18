@@ -47,6 +47,10 @@ $backlog-colour: $purple;
 .tag.beta      {background-color:$beta-colour;}
 .tag.live      {background-color:$live-colour;}
 
+.phase-history-item .tag {
+  min-width: 200px;
+}
+
 .big_number {
   font-size:96px;
   font-weight:700;
