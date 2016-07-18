@@ -10,9 +10,9 @@
 
 	<p style="margin-top:30px;">
 		These are all the things we're doing 
-		{% if view != 'theme' %}(<a href="{{roots.index}}/">order by theme</a>){% endif %}
-		{% if view != 'location' %}(<a href="{{roots.index}}/location/">order by location</a>){% endif %}
-		{% if view != 'priority' %}(<a href="{{roots.index}}/priority/">order by priority</a>){% endif %}
+		{% if view != 'theme' %}(<a href="/{{roots.index}}/">order by theme</a>){% endif %}
+		{% if view != 'location' %}(<a href="/{{roots.index}}/location/">order by location</a>){% endif %}
+		{% if view != 'priority' %}(<a href="/{{roots.index}}/priority/">order by priority</a>){% endif %}
 	</p>
 
 	<div class="grid-row">

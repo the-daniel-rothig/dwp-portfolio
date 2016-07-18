@@ -55,7 +55,7 @@ app.locals.bisdata = {
       });
   }, getAll: function(callback) {
       bisBase('Activity Tier 1').select().firstPage(function(t1err, t1results) {
-        if (t1err) callback(err,null);
+        if (t1err) callback(t1err,null);
         var themes = {};
         for (var i in t1results) {
           themes[t1results[i].get('Activity Tier 1 ID')] = t1results[i].get('Activity Tier 1 Title');
