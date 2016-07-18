@@ -71,10 +71,11 @@ _.each(files,function(el)
       }
       var themes = {};
       for (var i in tempT1) {
+        var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
         themes[tempT1[i].get('Activity Tier 1 ID')] = {
           title: tempT1[i].get('Activity Tier 1 Long Name'),
-          description: tempT1[i].get('Activity Tier 1 Public Description'),
-        var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
+          location: tempT1[i].get('Location'),
+          cardinality: idx < 0 ? 30000 : idx + 1
         }
       }
       bisBase('Activity Tier 2').select({
@@ -92,6 +93,7 @@ _.each(files,function(el)
           
           var themeDescriptions = {};
           for (var i in tempT1) {
+            var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
             themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
           }
           alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
@@ -129,11 +131,13 @@ _.each(files,function(el)
     var theme = r.get('Activity T1 ID');
     var themeTitle = (themes && themes[theme] && themes[theme].title) || theme;
     var themeLocation = (themes && themes[theme] && themes[theme].location) || "Various";
+    var themeId = (themes && themes[theme] && themes[theme].cardinality) || 30000;
     var formatted = {
             id: r.get('Activity T2 ID').slice(3),
             name: r.get('Activity Tier 2 Title'),
             description: r.get('Activity Tier 2 Description'),
             theme: themeTitle, 
+            themeid: themeId,
             location: themeLocation,
             phase: phase,
             facing: r.get('Facing') === "Internal" ? 'internal' : 'user', 
