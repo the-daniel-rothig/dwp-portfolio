@@ -37,74 +37,104 @@ _.each(files,function(el)
   BIS data loader
 */
 
-airtable.configure({
-  apiKey: "key6m6cFaeSbYB8gU"
-});
-var bisBase = airtable.base("appidn9pd0LDCemue");
+(function() {
+  airtable.configure({
+    apiKey: "key6m6cFaeSbYB8gU"
+  });
+  var bisBase = airtable.base("appidn9pd0LDCemue");
 
-app.locals.bisdata = {
-  getProject: function (id, callback) {
-      bisBase('Activity Tier 2').select({
-        maxRecords: 1,
-        filterByFormula: '{Activity T2 ID} = "AT-'+id+'"'
-      }).firstPage(function(err, results) {
-        if (err) callback(err, null);
-        var r = results[0];
-        if (!r) callback("Unknown ID", null);
-        callback(err, formatBisProject(r));
+  var alldata = {err: null, data: null};
+
+  var bisDataCallbacks = [];
+
+  var triggerAllCallbacks = function() {
+    for (var i in bisDataCallbacks) {
+      bisDataCallbacks[i](alldata.err, alldata.data);
+    }
+    bisDataCallbacks = [];
+  }
+
+  var getAll = function() {
+        bisBase('Activity Tier 1').select().firstPage(function(t1err, t1results) {
+          if (t1err) {
+            alldata = {err: t1err, data: alldata.data};
+            triggerAllCallbacks();
+          }
+          var themes = {};
+          for (var i in t1results) {
+            themes[t1results[i].get('Activity Tier 1 ID')] = t1results[i].get('Activity Tier 1 Title');
+          }
+          bisBase('Activity Tier 2').select({
+            maxRecords:200
+          }).firstPage(function(err, results) {
+            if (err) {
+              alldata = {err: err, data: alldata.data};
+              triggerAllCallbacks();
+            };
+            var data = _.filter(_.map(results, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x});
+            alldata = {err: err, data: data};
+            triggerAllCallbacks();
+        });
       });
-  }, getAll: function(callback) {
-      bisBase('Activity Tier 1').select().firstPage(function(t1err, t1results) {
-        if (t1err) callback(t1err,null);
-        var themes = {};
-        for (var i in t1results) {
-          themes[t1results[i].get('Activity Tier 1 ID')] = t1results[i].get('Activity Tier 1 Title');
+    } 
+
+  getAll();
+  setInterval(getAll, 60 * 1000);
+
+  app.locals.bisdata = {
+    getProject: function (id, callback) {
+        bisDataCallbacks.push(function(err, data) {
+          var project = _.find(data, function(x) {return x.id === id;});
+          if (!project) err = "Unknown ID";
+          callback(err, project);
+        });
+        if (alldata.data) {
+          triggerAllCallbacks();
         }
-        bisBase('Activity Tier 2').select({
-          maxRecords:200
-        }).firstPage(function(err, results) {
-          if (err) callback(err,null);
-          callback(err, _.filter(_.map(results, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x}));
-      });
-    });
-  } 
-}
-function formatBisProject(r, themes) {
-  if (!r || !r.get('Activity T2 ID')) return null;
-  var stage = (r.get('Current Stage') || "");
-  var stageLower = stage.toLowerCase();
-  var phase =  
-     ["approved", "discovery", "initiated", "initiation", "planning","planning build", "pre-alpha", "pre-contract", "procurement"].indexOf(stageLower) > -1 ? "discovery"
-    :["alpha", "in progress"].indexOf(stageLower) > -1 ? "alpha"
-    :["beta", "delivery", "live beta", "private beta", "testing", "underway"].indexOf(stageLower) > -1 ? "beta"
-    :["complete", "final delivery", "live", "nearing completion"].indexOf(stageLower) > -1 ? "live"
-    :"backlog";
+    }, getAll: function(callback) {
+        bisDataCallbacks.push(callback);
+        if (alldata.data) {
+          triggerAllCallbacks();
+        }    
+    } 
+  }
 
-  var theme = r.get('Activity T1 ID');
-  var theme = (themes && themes[theme]) || theme; 
-  var formatted = {
-          id: r.get('Activity T2 ID').slice(3),
-          name: r.get('Activity Tier 2 Title'),
-          description: r.get('Activity Tier 2 Description'),
-          theme: theme, //r.get('Activity Tier 1 Name')[0],
-          themeid: parseInt(r.get('Activity T1 ID').slice(3)),
-          location: r.get('Organisation')[0],
-          phase: phase,
-          facing: 'user', //todo: data
-          sro: r.get('SRO (T2)'),
-          service_man: r.get('Programme Lead'),
-          priority: "High"
-        };
-  var phaseHistory = {};
-  phaseHistory[phase] = [
-    {label: stage, date: r.get('Stage Start Date') || "unknown start date" }
-  ];
-  if (r.get('Stage End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date')});
-  
-  formatted["phase-history"] = phaseHistory;
-  return formatted;
-}
+  function formatBisProject(r, themes) {
+    if (!r || !r.get('Activity T2 ID')) return null;
+    var stage = (r.get('Current Stage') || "");
+    var stageLower = stage.toLowerCase();
+    var phase =  
+       ["approved", "discovery", "initiated", "initiation", "planning","planning build", "pre-alpha", "pre-contract", "procurement"].indexOf(stageLower) > -1 ? "discovery"
+      :["alpha", "in progress"].indexOf(stageLower) > -1 ? "alpha"
+      :["beta", "delivery", "live beta", "private beta", "testing", "underway"].indexOf(stageLower) > -1 ? "beta"
+      :["complete", "final delivery", "live", "nearing completion"].indexOf(stageLower) > -1 ? "live"
+      :"backlog";
 
+    var theme = r.get('Activity T1 ID');
+    var theme = (themes && themes[theme]) || theme; 
+    var formatted = {
+            id: r.get('Activity T2 ID').slice(3),
+            name: r.get('Activity Tier 2 Title'),
+            description: r.get('Activity Tier 2 Description'),
+            theme: theme, //r.get('Activity Tier 1 Name')[0],
+            themeid: parseInt(r.get('Activity T1 ID').slice(3)),
+            location: r.get('Organisation')[0],
+            phase: phase,
+            facing: 'user', //todo: data
+            sro: r.get('SRO (T2)'),
+            service_man: r.get('Programme Lead'),
+            priority: "High"
+          };
+    var phaseHistory = {};
+    phaseHistory[phase] = [
+      {label: stage, date: r.get('Stage Start Date') || "unknown start date" }
+    ];
+    if (r.get('Stage End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date')});
+    
+    formatted["phase-history"] = phaseHistory;
+    return formatted;
+  }
+})();
 // Application settings
 app.set('view engine', 'html');
 app.set('views', [__dirname + '/app/views/', __dirname + '/lib/']);
