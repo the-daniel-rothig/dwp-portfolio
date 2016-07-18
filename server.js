@@ -39,7 +39,7 @@ _.each(files,function(el)
 
 (function() {
   airtable.configure({
-    apiKey: "key6m6cFaeSbYB8gU"
+    apiKey: process.env.AIRTABLE_KEY
   });
   var bisBase = airtable.base("appidn9pd0LDCemue");
 
