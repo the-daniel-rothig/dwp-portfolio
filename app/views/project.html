@@ -27,7 +27,7 @@
 						<h3><a href="#" class="tag tag-history {{phase}}">{{phase}}</a></h3>
 						{% for item in data["phase-history"][phase] %}
 							<p>
-								{{ item.label }} &mdash; {{item.date}}
+								{{ item.label }} {% if item.date %} &mdash; {{item.date}}{% endif %}
 								{% if item.report %}
 									<br />(<a href="{{ item.report }}">assessment report</a>)
 								{% endif %}

@@ -136,7 +136,7 @@ _.each(files,function(el)
           };
     var phaseHistory = {};
     phaseHistory[phase] = [
-      {label: stage, date: r.get('Stage Start Date') || "unknown start date" }
+      {label: ["backlog","discovery","alpha","beta","live"].indexOf(stage.toLowerCase()) > -1 ? "Started" : stage, date: r.get('Stage Start Date') || null }
     ];
     if (r.get('Stage End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date')});
     
