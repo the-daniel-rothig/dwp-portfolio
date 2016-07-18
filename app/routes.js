@@ -33,8 +33,8 @@ var priority_descriptions = {
 */
 var phase_order = ['backlog','discovery','alpha','beta','live'];
 
-var roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
-var bisRoots = {index: 'bis', project: 'bis/projects', headertext: "(the department formerly known as)BIS Portfolio", pagetitle: "(the department formerly known as)BIS Portfolio"};
+var roots = {index: '', project: 'projects/', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
+var bisRoots = {index: 'bis/', project: 'bis/projects/', headertext: "(the department formerly known as)BIS Portfolio", pagetitle: "(the department formerly known as)BIS Portfolio"};
 
 /*
   A function to gather the data by
@@ -66,10 +66,6 @@ router.get('/bis', function(req, res) {
   getAllBisProjects(req, res, 'theme', 'themeid');
 });
 
-router.get('/bis/priority', function(req,res) {
-  getAllBisProjects(req, res, 'priority');
-});
-
 router.get('/bis/location', function(req, res) {
   getAllBisProjects(req, res, 'location');
 });
@@ -77,14 +73,16 @@ router.get('/bis/location', function(req, res) {
 
 function getAllBisProjects(req, res, groupField, groupSortField) {
   groupSortField = groupSortField || groupField; 
-  req.app.locals.bisdata.getAll(function (err, allprojects) {
+  req.app.locals.bisdata.getAll(function (err, allprojects, themeDescriptions) {
     var dat = {
       data: indexify(_.groupBy(allprojects, groupField)),
       counts: _.countBy(allprojects, 'phase'),
       view: groupField,
       theme_order: _.uniq(_.map(_.sortBy(allprojects, groupSortField), function(x){return x[groupField]})),//theme_order,
       phase_order: phase_order, 
-      roots: bisRoots
+      roots: bisRoots,
+      theme_descriptions: themeDescriptions,
+      available_sorting: {theme: groupField !== 'theme', location: groupField !== 'location', priority: false}
     };
     res.render('index', dat);
   });
@@ -103,7 +101,8 @@ router.get('/', function (req, res)
     "view":"theme",
     "theme_order":theme_order,
     "phase_order":phase_order,
-    "roots": roots
+    "roots": roots,
+    "available_sorting": {theme: false, location: true, priority: true}
     }
   );
 });
@@ -130,7 +129,8 @@ router.get('/location/', function (req, res)
     "view":"location",
     "theme_order":loc_order,
     "phase_order":phase_order,
-    "roots": roots
+    "roots": roots,
+    "available_sorting": {theme: true, location: false, priority: true}
   });
 });
 
@@ -151,7 +151,8 @@ router.get('/priority/', function (req, res)
     "theme_order":priority_order,
     "phase_order":phase_order,
     "priority_descriptions":priority_descriptions,
-    "roots": roots
+    "roots": roots,
+    "available_sorting": {theme: true, location: true, priority: false}
     }
   );
 });

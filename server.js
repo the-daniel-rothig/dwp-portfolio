@@ -43,13 +43,13 @@ _.each(files,function(el)
   });
   var bisBase = airtable.base("appidn9pd0LDCemue");
 
-  var alldata = {err: null, data: null};
+  var alldata = {err: null, data: null, themeDescriptions: null};
 
   var bisDataCallbacks = [];
 
   var triggerAllCallbacks = function() {
     for (var i in bisDataCallbacks) {
-      bisDataCallbacks[i](alldata.err, alldata.data);
+      bisDataCallbacks[i](alldata.err, alldata.data, alldata.themeDescriptions);
     }
     bisDataCallbacks = [];
   }
@@ -63,25 +63,36 @@ _.each(files,function(el)
       fetchNextPage();
     }, function done(t1err) {
       if (t1err) {
-        alldata = {err: t1err, data: alldata.data};
+        alldata = {err: t1err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
         triggerAllCallbacks();
         return;
       }
       var themes = {};
       for (var i in tempT1) {
-        themes[tempT1[i].get('Activity Tier 1 ID')] = tempT1[i].get('Activity Tier 1 Title');
+        themes[tempT1[i].get('Activity Tier 1 ID')] = {
+          title: tempT1[i].get('Activity Tier 1 Long Name'),
+          description: tempT1[i].get('Activity Tier 1 Public Description'),
+          location: tempT1[i].get('Location')
+        }
       }
-      bisBase('Activity Tier 2').select().eachPage(function(results, fetchNextPage) {
+      bisBase('Activity Tier 2').select({
+        filterByFormula: 'AND(NOT({Phase} = ""), NOT({Phase} = "Other"), NOT({Omit from public dashboard} = "Omit"))'
+      }).eachPage(function(results, fetchNextPage) {
           tempT2 = tempT2.concat(results);
           fetchNextPage();
         }, function(err) {
           if (err) {
-            alldata = {err: err, data: alldata.data};
+            alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
             triggerAllCallbacks();
             return;
           };
           var data = _.filter(_.map(tempT2, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x});
-          alldata = {err: err, data: data};
+          
+          var themeDescriptions = {};
+          for (var i in tempT1) {
+            themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
+          }
+          alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
           triggerAllCallbacks();
       });
     });
@@ -111,25 +122,22 @@ _.each(files,function(el)
   function formatBisProject(r, themes) {
     if (!r || !r.get('Activity T2 ID')) return null;
     var stage = (r.get('Current Stage') || "");
-    var stageLower = stage.toLowerCase();
-    var phase =  
-       ["approved", "discovery", "initiated", "initiation", "planning","planning build", "pre-alpha", "pre-contract", "procurement"].indexOf(stageLower) > -1 ? "discovery"
-      :["alpha", "in progress"].indexOf(stageLower) > -1 ? "alpha"
-      :["beta", "delivery", "live beta", "private beta", "testing", "underway"].indexOf(stageLower) > -1 ? "beta"
-      :["complete", "final delivery", "live", "nearing completion"].indexOf(stageLower) > -1 ? "live"
-      :"backlog";
+    var phase = (r.get('Phase') || "").toLowerCase();
 
     var theme = r.get('Activity T1 ID');
-    var theme = (themes && themes[theme]) || theme; 
+    var themeTitle = (themes && themes[theme] && themes[theme].title) || theme;
+    var themeLocation = (themes && themes[theme] && themes[theme].location) || "Various";
+    var themeDescription = (themes && themes[theme] && themes[theme].description) || null;
     var formatted = {
             id: r.get('Activity T2 ID').slice(3),
             name: r.get('Activity Tier 2 Title'),
             description: r.get('Activity Tier 2 Description'),
-            theme: theme, //r.get('Activity Tier 1 Name')[0],
+            theme: themeTitle, 
             themeid: parseInt(r.get('Activity T1 ID').slice(3)),
-            location: r.get('Organisation')[0],
+            location: themeLocation,
+            themeDescription: themeDescription,
             phase: phase,
-            facing: 'user', //todo: data
+            facing: r.get('Facing') === "Internal" ? 'internal' : 'user', 
             sro: r.get('SRO (T2)'),
             service_man: r.get('Programme Lead'),
             priority: "High"
@@ -193,7 +201,7 @@ app.get(/^\/([^.]+)$/, function (req, res)
   if (path.substr(-1) === '/') path = path.substr(0, path.length - 1);
 
   var data = req.data || {};
-  data.roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
+  data.roots = {index: '', project: 'projects/', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
 	res.render(path, data, function(err, html)
   {
 		if (err) {
