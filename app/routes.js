@@ -33,6 +33,9 @@ var priority_descriptions = {
 */
 var phase_order = ['backlog','discovery','alpha','beta','live'];
 
+var roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services"};
+var bisRoots = {index: 'bis', project: 'bis/projects', headertext: "(the department formerly known as)BIS Portfolio"};
+
 /*
   A function to gather the data by
   'phase' and then 'facing' so the
@@ -54,6 +57,26 @@ function indexify(data)
   return new_data;
 }
 
+
+/*
+  - - - - - - - - - - BIS INDEX PAGE - - - - - - - - - -
+*/
+
+router.get('/bis', function(req, res) {
+  //res.end("ok")
+  req.app.locals.bisdata.getAll(function (err, allprojects) {
+    var dat = {
+      data: indexify(_.groupBy(allprojects, 'theme')),
+      counts: _.countBy(allprojects, 'phase'),
+      view: 'theme',
+      theme_order: _.uniq(_.map(_.sortBy(allprojects, function(x) {return x.themeid}), function(x){return x.theme})),//theme_order,
+      phase_order: phase_order, 
+      roots: bisRoots
+    };
+    console.log(dat);
+    res.render('index', dat);
+  });
+});
 /*
   - - - - - - - - - -  INDEX PAGE - - - - - - - - - -
 */
@@ -67,7 +90,8 @@ router.get('/', function (req, res)
     "counts":phases,
     "view":"theme",
     "theme_order":theme_order,
-    "phase_order":phase_order
+    "phase_order":phase_order,
+    "roots": roots
     }
   );
 });
@@ -93,10 +117,10 @@ router.get('/location/', function (req, res)
     "counts":phases,
     "view":"location",
     "theme_order":loc_order,
-    "phase_order":phase_order
+    "phase_order":phase_order,
+    "roots": roots
   });
 });
-
 
 /*
   - - - - - - - - - -  INDEX PAGE - - - - - - - - - -
@@ -114,9 +138,23 @@ router.get('/priority/', function (req, res)
     "view":"priority",
     "theme_order":priority_order,
     "phase_order":phase_order,
-    "priority_descriptions":priority_descriptions
+    "priority_descriptions":priority_descriptions,
+    "roots": roots
     }
   );
+});
+/*
+  - - - - - - - - - -  BIS PROJECT PAGE - - - - - - - - - -
+*/
+
+router.get('/bis/projects/:id/:slug?', function (req, res) {
+  req.app.locals.bisdata.getProject(req.params.id, function (err, record)  {   
+    if (err) {
+      res.status(404).send(err);
+    } else {
+      res.render('project', {data:record, phase_order:phase_order, roots: bisRoots});
+    };
+  });
 });
 
 /*
@@ -128,6 +166,7 @@ router.get('/projects/:id/:slug', function (req, res)
   res.render('project', {
     "data":data,
     "phase_order":phase_order,
+    "roots":roots
   });
 });
 
