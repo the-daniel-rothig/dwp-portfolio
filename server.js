@@ -192,10 +192,12 @@ app.get(/^\/([^.]+)$/, function (req, res)
   // remove the trailing slash because it seems nunjucks doesn't expect it.
   if (path.substr(-1) === '/') path = path.substr(0, path.length - 1);
 
-	res.render(path, req.data, function(err, html)
+  var data = req.data || {};
+  data.roots = {index: '', project: 'projects', headertext: "DWP Digital by Default Services", pagetitle: "DWP Digital by Default Services"};
+	res.render(path, data, function(err, html)
   {
 		if (err) {
-			res.render(path + "/index", req.data, function(err2, html)
+			res.render(path + "/index", data, function(err2, html)
       {
         if (err2) {
           res.status(404).send(path+'<br />'+err+'<br />'+err2);

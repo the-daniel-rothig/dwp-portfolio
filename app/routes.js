@@ -193,6 +193,7 @@ router.get('/projects/:id/:slug/prototype', function (req, res)
   {
     res.render('no-prototype',{
       "data":data,
+      "roots": roots
     });
   } else {
     res.redirect(data.prototype);
