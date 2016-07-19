@@ -45,8 +45,8 @@ _.each(files,function(el)
 
   var alldata = {err: null, data: null, themeDescriptions: null};
 
+  // a queue for data requests in case pages are requested before the data has been cached
   var bisDataCallbacks = [];
-
   var triggerAllCallbacks = function() {
     for (var i in bisDataCallbacks) {
       bisDataCallbacks[i](alldata.err, alldata.data, alldata.themeDescriptions);
@@ -54,68 +54,78 @@ _.each(files,function(el)
     bisDataCallbacks = [];
   }
 
-  var themeOrder = ['BIS HQ', 'Skills Funding Agency', 'UKSBS', 'Innovate UK', 'RCUK', 'MRC (RCUK)', 'BBSRC (RCUK)', 'NERC (RCUK)', 'STFC (RCUK)', 'PSU (AHRC, EPSRC ESRC)'];
-
   var getAll = function() {
-    var tempT1 = [];
-    var tempT2 = [];
-    var tempT3 = [];
+    getAllRows([
+      bisBase('Activity Tier 1').select(),
+      bisBase('Activity Tier 2').select({filterByFormula: 'AND(NOT({Phase} = ""), NOT({Phase} = "Other"), NOT({Omit from public dashboard} = "Omit"))'}),
+      bisBase('Activity Tier 3').select()], function(err, spreadsheets) {
+        if (err) {
+           alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
+           triggerAllCallbacks();
+           return;
+        }
+        var tempT1 = spreadsheets[0], // Tier 1
+            tempT2 = spreadsheets[1], // Tier 2
+            tempT3 = spreadsheets[2]; // Tier 3
 
-    bisBase('Activity Tier 1').select().eachPage(function page(t1results, fetchNextPage) {
-      tempT1 = tempT1.concat(t1results);
-      fetchNextPage();
-    }, function done(t1err) {
-      if (t1err) {
-        alldata = {err: t1err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
+        // Tier 1 data is interpreted as themes, providing the projects with metadata to get grouped by
+        var themeOrder = ['BIS HQ', 'Skills Funding Agency', 'UKSBS', 'Innovate UK', 'RCUK', 'MRC (RCUK)', 'BBSRC (RCUK)', 'NERC (RCUK)', 'STFC (RCUK)', 'PSU (AHRC, EPSRC ESRC)'];
+        var themes = {};
+        for (var i in tempT1) {
+          var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
+          themes[tempT1[i].get('Activity Tier 1 ID')] = {
+            title: tempT1[i].get('Activity Tier 1 Long Name'),
+            location: tempT1[i].get('Location'),
+            cardinality: idx < 0 ? 30000 : idx + 1
+          }
+        }
+
+        var data = _.filter(_.map(tempT2, function(x) {
+          // Tier 3 data is interpreted as project steps
+          var steps = _.filter(tempT3, function(y){return y.get('Activity Tier 2 ID') === x.get('Activity T2 ID')});
+          
+          // most of the data comes from Tier 2: each row is treated as a portfolio project
+          return formatBisProject(x, steps, themes)
+        }), function(x) {return !!x});
+      
+        // metadata needed for populating the index page
+        var themeDescriptions = {};
+        for (var i in tempT1) {
+          var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
+          themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
+        }
+
+        alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
         triggerAllCallbacks();
+    });
+  };
+
+  // This function sequentially retrieves all rows of multiple Airtable tables
+  // (identified by their .select() return values) and finally invokes a callback
+  // with any error OR an array of arrays, where the outer array is the tables
+  // and the inner array is the rows.
+  function getAllRows(airtableSelects, callback, _resultsSoFar) {
+    var tmp = [];
+    _resultsSoFar = _resultsSoFar || [];
+
+    airtableSelects[0].eachPage(function page(results, nextPage) {
+      tmp = tmp.concat(results);
+      nextPage();
+    }, function done(err) {
+      if (err) {
+        callback(err, null);
         return;
       }
-      var themes = {};
-      for (var i in tempT1) {
-        var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
-        themes[tempT1[i].get('Activity Tier 1 ID')] = {
-          title: tempT1[i].get('Activity Tier 1 Long Name'),
-          location: tempT1[i].get('Location'),
-          cardinality: idx < 0 ? 30000 : idx + 1
-        }
+      _resultsSoFar.push(tmp);
+      if (airtableSelects.length > 1) {
+        // recursion happens here: the select just processed gets removed from the array
+        // of selects, its results carried across in _resultsSoFar.
+        getAllRows(airtableSelects.slice(1), callback, _resultsSoFar);
+      } else {
+        callback(null, _resultsSoFar);
       }
-      bisBase('Activity Tier 2').select({
-        filterByFormula: 'AND(NOT({Phase} = ""), NOT({Phase} = "Other"), NOT({Omit from public dashboard} = "Omit"))'
-      }).eachPage(function(results, fetchNextPage) {
-          tempT2 = tempT2.concat(results);
-          fetchNextPage();
-        }, function(err) {
-          if (err) {
-            alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
-            triggerAllCallbacks();
-            return;
-          };
-
-          bisBase('Activity Tier 3').select().eachPage(function(results, fetchNextPage) {
-            tempT3 = tempT3.concat(results);
-            fetchNextPage();
-          }, function (err) {
-            if (err) {
-              alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
-              triggerAllCallbacks();
-              return;
-            };
-            var data = _.filter(_.map(tempT2, function(x) {
-              var steps = _.filter(tempT3, function(y){return y.get('Activity Tier 2 ID') === x.get('Activity T2 ID')});
-              return formatBisProject(x, steps, themes)
-            }), function(x) {return !!x});
-          
-            var themeDescriptions = {};
-            for (var i in tempT1) {
-              var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
-              themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
-            }
-            alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
-            triggerAllCallbacks();
-          });
-      });
     });
-  }; 
+  }
 
   getAll();
   setInterval(getAll, 60 * 1000);
@@ -168,10 +178,14 @@ _.each(files,function(el)
       if (!name) continue;
       var s = [];
       if (steps[i].get('Activity Start Date')) s.push({label: "Start date", date: steps[i].get('Activity Start Date'), dateFormatted: new Date(steps[i].get('Activity Start Date')).toLocaleDateString()})
-      if (steps[i].get('Activity End Date')) s.push({label: "End date", date: steps[i].get('Activity End Date'), dateFormatted: new Date(steps[i].get('Activity End Date')).toLocaleDateString()})
+      if (steps[i].get('Target End Date')) s.push({label: "Target end date", date: steps[i].get('Target End Date'), dateFormatted: new Date(steps[i].get('Target End Date')).toLocaleDateString()})
       
       stepsFormatted.push({name: name, data: s})
     }
+
+    // Heuristics to guess what sort of phase, if any, this step refers to
+    //  (1) stage names containing phase words get associated with that phase
+    //  (2) later stages are associated with the next phase UNLESS those later stages also include the phase word 
     var stepsFormatted = _.sortBy(stepsFormatted, function(x) {return x.data[0] && new Date(x.data[0].date)});
     var phaseSequence = ['backlog', 'discovery', 'alpha', 'beta', 'live'];
     var seqIdx = 0;
@@ -184,11 +198,10 @@ _.each(files,function(el)
       if (seqIdx <= 4 && namehas("live")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 4)];
     }
 
-
     formatted.steps = stepsFormatted;
 
+    // fall back to phase history if there are no steps
     if (!formatted.steps.length) {
-      // fall back to phase history
       var phaseHistory = {};
       var startedLabel = !stage || stage.toLowerCase() === phase ? "Started" : stage;
       phaseHistory[phase] = [
