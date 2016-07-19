@@ -47,7 +47,7 @@
 						<h3><a href="#" class="tag tag-history {{step.phase}}">{{step.name}}</a></h3>
 						{% for datum in step.data %}
 							<p>
-								{{ datum.label }} {% if datum.date %} &mdash; {{datum.date}}{% endif %}
+								{{ datum.label }} {% if datum.date %} &mdash; {{datum.dateFormatted}}{% endif %}
 								{% if datum.report %}
 									<br />(<a href="{{ datum.report }}">assessment report</a>)
 								{% endif %}

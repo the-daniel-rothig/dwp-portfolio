@@ -166,8 +166,8 @@ _.each(files,function(el)
       var name = steps[i].get('Activity Tier 3 Title');
       if (!name) continue;
       var s = [];
-      if (steps[i].get('Activity Start Date')) s.push({label: "Start date", date: steps[i].get('Activity Start Date')})
-      if (steps[i].get('Activity End Date')) s.push({label: "End date", date: steps[i].get('Activity End Date')})
+      if (steps[i].get('Activity Start Date')) s.push({label: "Start date", date: steps[i].get('Activity Start Date'), dateFormatted: new Date(steps[i].get('Activity Start Date')).toLocaleDateString()})
+      if (steps[i].get('Activity End Date')) s.push({label: "End date", date: steps[i].get('Activity End Date'), dateFormatted: new Date(steps[i].get('Activity End Date')).toLocaleDateString()})
       
       stepsFormatted.push({name: name, data: s})
     }
@@ -175,7 +175,7 @@ _.each(files,function(el)
     var phaseSequence = ['backlog', 'discovery', 'alpha', 'beta', 'live'];
     var seqIdx = 0;
     for (var i in stepsFormatted) {
-      var namehas = function(substr) {return stepsFormatted[i].name.toLowerCase().indexOf("pre-") === -1 && stepsFormatted[i].name.toLowerCase().indexOf(substr.toLowerCase()) > -1};
+      var namehas = function(substr) {return stepsFormatted[i].name.toLowerCase().indexOf("pre-") === -1 && stepsFormatted[i].name.toLowerCase().match("(^|\\s)"+substr.toLowerCase()+"(\\s|$)")};
       stepsFormatted[i].phase = phaseSequence[seqIdx];
       if (seqIdx <= 2 && namehas("discovery")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 2) - 1];
       if (seqIdx <= 3 && namehas("alpha")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 3) - 1];
@@ -189,8 +189,9 @@ _.each(files,function(el)
     if (!formatted.steps.length) {
       // fall back to phase history
       var phaseHistory = {};
+      var startedLabel = !stage || stage.toLowerCase() === phase ? "Started" : stage;
       phaseHistory[phase] = [
-        {label: ["backlog","discovery","alpha","beta","live"].indexOf(stage.toLowerCase()) > -1 ? "Started" : stage, date: r.get('Stage Start Date') || r.get('Start Date') || null }
+        {label: startedLabel, date: r.get('Stage Start Date') || r.get('Start Date') || null }
       ];
       if (r.get('Stage End Date') || r.get('Target End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date') || r.get('Target End Date')});
       
