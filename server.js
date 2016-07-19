@@ -43,16 +43,39 @@ _.each(files,function(el)
   });
   var bisBase = airtable.base("appidn9pd0LDCemue");
 
-  var alldata = {err: null, data: null, themeDescriptions: null};
-
   // a queue for data requests in case pages are requested before the data has been cached
-  var bisDataCallbacks = [];
-  var triggerAllCallbacks = function() {
-    for (var i in bisDataCallbacks) {
-      bisDataCallbacks[i](alldata.err, alldata.data, alldata.themeDescriptions);
+  // (possibly a tad overengineered)
+  function BisData() {
+    var alldata = {err: null, data: null, themeDescriptions: null};
+    var bisDataCallbacks = [];
+    
+    var triggerAllCallbacks = function() {
+      for (var i in bisDataCallbacks) {
+        bisDataCallbacks[i](alldata.err, alldata.data, alldata.themeDescriptions);
+      }
+      bisDataCallbacks = [];
     }
-    bisDataCallbacks = [];
+
+    this.push = function(callback) {
+      if (alldata.data) {
+        callback(alldata.err, alldata.data, alldata.themeDescriptions);
+      } else {
+        bisDataCallbacks.push(callback);
+      }
+    }
+    
+    this.setData = function(data, themeDescriptions) {
+      alldata = {err: null, data: data, themeDescriptions: themeDescriptions};
+      triggerAllCallbacks();
+    }
+
+    this.setError = function(err) {
+      alldata = {err: err, data:alldata.data, themeDescriptions: alldata.themeDescriptions};
+      triggerAllCallbacks();
+    }
   }
+
+  var bisData = new BisData();
 
   var getAll = function() {
     getAllRows([
@@ -60,9 +83,8 @@ _.each(files,function(el)
       bisBase('Activity Tier 2').select({filterByFormula: 'AND(NOT({Phase} = ""), NOT({Phase} = "Other"), NOT({Omit from public dashboard} = "Omit"))'}),
       bisBase('Activity Tier 3').select()], function(err, spreadsheets) {
         if (err) {
-           alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
-           triggerAllCallbacks();
-           return;
+          bisData.setError(err);
+          return;
         }
         var tempT1 = spreadsheets[0], // Tier 1
             tempT2 = spreadsheets[1], // Tier 2
@@ -95,8 +117,7 @@ _.each(files,function(el)
           themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
         }
 
-        alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
-        triggerAllCallbacks();
+        bisData.setData(data, themeDescriptions);
     });
   };
 
@@ -127,26 +148,22 @@ _.each(files,function(el)
     });
   }
 
+  // cache and regularly refresh portfolio data
   getAll();
   setInterval(getAll, 60 * 1000);
 
+  // access to portfolio data
   app.locals.bisdata = {
     getProject: function (id, callback) {
-        bisDataCallbacks.push(function(err, data) {
+        bisData.push(function(err, data) {
           var project = _.find(data, function(x) {return x.id === id;});
           if (!project) err = "Unknown ID";
           callback(err, project);
         });
-        if (alldata.data) {
-          triggerAllCallbacks();
-        }
     }, getAll: function(callback) {
-        bisDataCallbacks.push(callback);
-        if (alldata.data) {
-          triggerAllCallbacks();
-        }    
+        bisData.push(callback);
     } 
-  }
+  };
 
   function formatBisProject(r,  steps, themes) {
     if (!r || !r.get('Activity T2 ID')) return null;
