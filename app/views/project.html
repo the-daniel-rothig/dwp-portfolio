@@ -48,9 +48,6 @@
 						{% for datum in step.data %}
 							<p>
 								{{ datum.label }} {% if datum.date %} &mdash; {{datum.dateFormatted}}{% endif %}
-								{% if datum.report %}
-									<br />(<a href="{{ datum.report }}">assessment report</a>)
-								{% endif %}
 							</p>
 						{% endfor %}
 					</div>
