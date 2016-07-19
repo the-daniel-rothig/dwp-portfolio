@@ -19,6 +19,7 @@
 			</div>
 			{% endif %}
 
+			{% if data["phase-history"] %}
 			<h2 class="heading-medium">Project history</h2>
 			<div class="phase-history">
 				{% for phase in phase_order %}
@@ -35,8 +36,28 @@
 						{% endfor %}
 					</div>
 					{% endif %}
+				{% endfor %}				
+			</div>
+			{% endif %}
+			{% if data.steps.length %}
+			<div class="phase-history">
+			<h2 class="heading-medium">Project stages</h2>			
+				{% for step in data.steps %}
+					<div class="phase-history-item border-{{step.phase}} txt-{{step.phase}}">
+						<h3><a href="#" class="tag tag-history {{step.phase}}">{{step.name}}</a></h3>
+						{% for datum in step.data %}
+							<p>
+								{{ datum.label }} {% if datum.date %} &mdash; {{datum.date}}{% endif %}
+								{% if datum.report %}
+									<br />(<a href="{{ datum.report }}">assessment report</a>)
+								{% endif %}
+							</p>
+						{% endfor %}
+					</div>
 				{% endfor %}
 			</div>
+			{% endif %}		
+
 		</section>
 		<section class="column-third">
 

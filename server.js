@@ -59,6 +59,7 @@ _.each(files,function(el)
   var getAll = function() {
     var tempT1 = [];
     var tempT2 = [];
+    var tempT3 = [];
 
     bisBase('Activity Tier 1').select().eachPage(function page(t1results, fetchNextPage) {
       tempT1 = tempT1.concat(t1results);
@@ -89,15 +90,29 @@ _.each(files,function(el)
             triggerAllCallbacks();
             return;
           };
-          var data = _.filter(_.map(tempT2, function(x) {return formatBisProject(x, themes)}), function(x) {return !!x});
+
+          bisBase('Activity Tier 3').select().eachPage(function(results, fetchNextPage) {
+            tempT3 = tempT3.concat(results);
+            fetchNextPage();
+          }, function (err) {
+            if (err) {
+              alldata = {err: err, data: alldata.data, themeDescriptions: alldata.themeDescriptions};
+              triggerAllCallbacks();
+              return;
+            };
+            var data = _.filter(_.map(tempT2, function(x) {
+              var steps = _.filter(tempT3, function(y){return y.get('Activity Tier 2 ID') === x.get('Activity T2 ID')});
+              return formatBisProject(x, steps, themes)
+            }), function(x) {return !!x});
           
-          var themeDescriptions = {};
-          for (var i in tempT1) {
-            var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
-            themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
-          }
-          alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
-          triggerAllCallbacks();
+            var themeDescriptions = {};
+            for (var i in tempT1) {
+              var idx = themeOrder.indexOf(tempT1[i].get('Activity Tier 1 Title'));
+              themeDescriptions[tempT1[i].get('Activity Tier 1 Long Name')] = tempT1[i].get('Activity Tier 1 Public Description') || "";
+            }
+            alldata = {err: err, data: data, themeDescriptions: themeDescriptions};
+            triggerAllCallbacks();
+          });
       });
     });
   }; 
@@ -123,7 +138,7 @@ _.each(files,function(el)
     } 
   }
 
-  function formatBisProject(r, themes) {
+  function formatBisProject(r,  steps, themes) {
     if (!r || !r.get('Activity T2 ID')) return null;
     var stage = (r.get('Current Stage') || "");
     var phase = (r.get('Phase') || "").toLowerCase();
@@ -145,13 +160,42 @@ _.each(files,function(el)
             service_man: r.get('Programme Lead'),
             priority: "High"
           };
-    var phaseHistory = {};
-    phaseHistory[phase] = [
-      {label: ["backlog","discovery","alpha","beta","live"].indexOf(stage.toLowerCase()) > -1 ? "Started" : stage, date: r.get('Stage Start Date') || r.get('Start Date') || null }
-    ];
-    if (r.get('Stage End Date') || r.get('Target End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date') || r.get('Target End Date')});
     
-    formatted["phase-history"] = phaseHistory;
+    var stepsFormatted = [];
+    for (var i in steps) {
+      var name = steps[i].get('Activity Tier 3 Title');
+      if (!name) continue;
+      var s = [];
+      if (steps[i].get('Activity Start Date')) s.push({label: "Start date", date: steps[i].get('Activity Start Date')})
+      if (steps[i].get('Activity End Date')) s.push({label: "End date", date: steps[i].get('Activity End Date')})
+      
+      stepsFormatted.push({name: name, data: s})
+    }
+    var stepsFormatted = _.sortBy(stepsFormatted, function(x) {return x.data[0] && new Date(x.data[0].date)});
+    var phaseSequence = ['backlog', 'discovery', 'alpha', 'beta', 'live'];
+    var seqIdx = 0;
+    for (var i in stepsFormatted) {
+      var namehas = function(substr) {return stepsFormatted[i].name.toLowerCase().indexOf("pre-") === -1 && stepsFormatted[i].name.toLowerCase().indexOf(substr.toLowerCase()) > -1};
+      stepsFormatted[i].phase = phaseSequence[seqIdx];
+      if (seqIdx <= 2 && namehas("discovery")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 2) - 1];
+      if (seqIdx <= 3 && namehas("alpha")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 3) - 1];
+      if (seqIdx <= 4 && namehas("beta")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 4) - 1];
+      if (seqIdx <= 4 && namehas("live")) stepsFormatted[i].phase = phaseSequence[(seqIdx = 4)];
+    }
+
+
+    formatted.steps = stepsFormatted;
+
+    if (!formatted.steps.length) {
+      // fall back to phase history
+      var phaseHistory = {};
+      phaseHistory[phase] = [
+        {label: ["backlog","discovery","alpha","beta","live"].indexOf(stage.toLowerCase()) > -1 ? "Started" : stage, date: r.get('Stage Start Date') || r.get('Start Date') || null }
+      ];
+      if (r.get('Stage End Date') || r.get('Target End Date')) phaseHistory[phase].push({label: "Predicted", date: r.get('Stage End Date') || r.get('Target End Date')});
+      
+      formatted["phase-history"] = phaseHistory;
+    }
     return formatted;
   }
 })();
